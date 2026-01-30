@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Cleaner AI (Browser Edition)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #ec4899;
+            --accent: #8b5cf6;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-main: #f8fafc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container { width: 100%; max-width: 900px; }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 3rem;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #c084fc, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Upload Area */
+        .upload-zone {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 3rem;
+            margin-top: 2rem;
+            transition: 0.3s;
+            cursor: pointer;
+            background: rgba(0,0,0,0.2);
+        }
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(139, 92, 246, 0.1);
+            transform: scale(1.01);
+        }
+
+        /* Terminal */
+        .terminal-window {
+            margin-top: 2rem;
+            background: #0d1117;
+            border-radius: 12px;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            display: none;
+            border: 1px solid #30363d;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+        .terminal-header {
+            background: #161b22;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
+        .terminal-body {
+            padding: 1rem;
+            height: 250px;
+            overflow-y: auto;
+            color: #27c93f;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .log-line { margin-bottom: 4px; word-break: break-word; }
+        .log-error { color: #ff5f56; }
+        .log-warn { color: #ffbd2e; }
+
+        /* Progress Bar */
+        .progress-wrapper {
+            margin-top: 1.5rem;
+            background: rgba(255,255,255,0.1);
+            height: 8px;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Success Area */
+        .success-area {
+            margin-top: 2rem;
+            display: none;
+            animation: popIn 0.5s ease;
+        }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .btn-download {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+            transition: transform 0.2s;
+        }
+        .btn-download:hover { transform: translateY(-3px); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="glass-card">
+            <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 3rem; color: #c084fc; margin-bottom: 1rem;"></i>
+            <h1>Exam Cleaner AI</h1>
+            <p style="color: #94a3b8;">Convert messy Exam PDFs to Clean Word Docs.</p>
+
+            <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3rem; color: #94a3b8; margin-bottom: 1rem;"></i>
+                <h3>Click to Upload PDF</h3>
+                <p style="font-size: 0.9rem; color: #64748b;">Runs 100% in your browser. Private & Free.</p>
+                <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+            </div>
+
+            <div class="progress-wrapper" id="progressWrapper">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <div class="terminal-window" id="terminal">
+                <div class="terminal-header">
+                    <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+                    <span style="color: #8b949e; font-size: 0.8rem; margin-left: 10px;">browser_engine.js</span>
+                </div>
+                <div class="terminal-body" id="terminalBody"></div>
+            </div>
+
+            <div class="success-area" id="successArea">
+                <h2 style="margin-bottom: 1rem; color: #10b981;">Processing Complete!</h2>
+                <a id="downloadBtn" class="btn-download"><i class="fa-solid fa-file-word"></i> Download Word Doc</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION: FIXED VERSIONS ---
+        // This is the CRITICAL FIX. We set the worker to the exact matching version of the main script.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        const terminalBody = document.getElementById('terminalBody');
+        const progressBar = document.getElementById('progressBar');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const successArea = document.getElementById('successArea');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        function log(msg, type = 'info') {
+            const p = document.createElement('div');
+            p.className = 'log-line';
+            if (type === 'error') p.className += ' log-error';
+            p.innerHTML = `> ${msg}`;
+            terminalBody.appendChild(p);
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        // --- 2. CLEANING LOGIC ---
+        function isGarbageLine(text) {
+            const garbagePattern = /[ÿšâ£¤~¡¢¥§©®°±²³µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþ]/;
+            if (garbagePattern.test(text)) return true;
+            if (/(ke‚er|ke‚e|ceW|ngF&|nw~|mLeeve|peelee)/.test(text)) return true;
+            return false;
+        }
+
+        function advancedClean(text) {
+            if (!text) return "N/A";
+            if (text.includes('/')) text = text.split('/')[0];
+
+            // Remove Hindi
+            text = text.replace(/[\u0900-\u097F]+/g, '');
+            // Remove Mojibake
+            text = text.replace(/[ÿšâ£¤~¡¢¥§©®°±²³µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþ]/g, '');
+
+            // Trailing numbers logic
+            text = text.replace(/\s+\d{1,2}\s*$/, ''); 
+            text = text.replace(/\s+\d{1,2}\s*-\s*$/, '');
+
+            // Question mark garbage cleanup
+            if (text.includes('?')) {
+                const parts = text.split('?');
+                if (parts.length > 1 && /(mLeeve|peelee|nw|Lee|mes)/.test(parts[1])) {
+                    text = parts[0] + "?";
+                }
+            }
+            
+            // Final whitespace
+            text = text.replace(/\s+/g, ' ').trim();
+            text = text.replace(/^[\s\.\-]+/, '');
+            
+            return text;
+        }
+
+        // --- 3. MAIN PROCESSOR ---
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // UI Reset
+            document.getElementById('terminal').style.display = 'block';
+            progressWrapper.style.display = 'block';
+            progressBar.style.width = '2%';
+            successArea.style.display = 'none';
+            terminalBody.innerHTML = '';
+
+            log(`Starting Engine (v2.16 stable)...`);
+            log(`Loading File: ${file.name}`);
+
+            // Use FileReader to safely get ArrayBuffer
+            const reader = new FileReader();
+            
+            reader.onload = async function() {
+                try {
+                    const arrayBuffer = this.result;
+                    // CONVERT TO Uint8Array (Fixes "Invalid PDF structure")
+                    const typedArray = new Uint8Array(arrayBuffer);
+
+                    log("Initializing Worker...");
+                    
+                    // Pass data object explicitly
+                    const loadingTask = pdfjsLib.getDocument({ data: typedArray });
+                    const pdf = await loadingTask.promise;
+                    
+                    let fullText = "";
+                    const totalPages = pdf.numPages;
+                    log(`PDF Loaded Successfully. Total Pages: ${totalPages}`);
+
+                    // EXTRACT TEXT
+                    for (let i = 1; i <= totalPages; i++) {
+                        if (i % 5 === 0) log(`Extracting text from page ${i}...`);
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        
+                        const strings = content.items.map(item => item.str);
+                        fullText += strings.join(" ") + "\n";
+                        
+                        progressBar.style.width = `${(i / totalPages) * 50}%`;
+                    }
+
+                    log("Text extraction complete. Analyzing patterns...");
+
+                    // PROCESSING
+                    const splitText = fullText.replace(/\n\s*(\d{1,3}\.)/g, "\n###SPLIT###$1");
+                    const blocks = splitText.split("###SPLIT###");
+
+                    const doc = new docx.Document({
+                        sections: [{
+                            properties: {},
+                            children: [
+                                new docx.Paragraph({
+                                    text: "English One-Liners",
+                                    heading: docx.HeadingLevel.HEADING_1,
+                                    spacing: { after: 300 }
+                                })
+                            ]
+                        }]
+                    });
+
+                    const docChildren = doc.sections[0].children;
+                    let processedCount = 0;
+                    log(`Found ${blocks.length} blocks. Cleaning...`);
+
+                    for (let i = 0; i < blocks.length; i++) {
+                        const rawBlock = blocks[i];
+                        if (!rawBlock.trim()) continue;
+
+                        const ansMatch = rawBlock.match(/Ans[\.\s:]+\(?([a-d])\)?/i);
+
+                        if (ansMatch) {
+                            const correctLetter = ansMatch[1].toLowerCase();
+                            const contentBlock = rawBlock.substring(0, ansMatch.index);
+                            const lines = contentBlock.split('\n');
+
+                            let questionParts = [];
+                            let optionParts = [];
+                            let examTag = "MP Police Exam"; 
+                            let foundFirstOption = false;
+
+                            for (let line of lines) {
+                                line = line.trim();
+                                if (!line) continue;
+
+                                if (/(MP Police|Constable|Shift|Exam \d{4}|Recruitment)/i.test(line)) {
+                                    examTag = line;
+                                    continue;
+                                }
+
+                                const splitLine = line.split(/(\([a-d]\))/i);
+
+                                if (splitLine.length > 1) {
+                                    foundFirstOption = true;
+                                    if (splitLine[0].trim() && !isGarbageLine(splitLine[0])) {
+                                        questionParts.push(splitLine[0]);
+                                    }
+                                    optionParts.push(splitLine.slice(1).join(""));
+                                } else if (foundFirstOption) {
+                                    optionParts.push(line);
+                                } else {
+                                    if (!isGarbageLine(line)) questionParts.push(line);
+                                }
+                            }
+
+                            let finalQ = advancedClean(questionParts.join(" "));
+                            let fullOpts = optionParts.join(" ");
+                            let finalAns = "N/A";
+
+                            const ansRegex = new RegExp(`\\(${correctLetter}\\)\\s*([^\\(\\)]+)`, "i");
+                            const targetMatch = fullOpts.match(ansRegex);
+                            if (targetMatch) {
+                                finalAns = advancedClean(targetMatch[1]);
+                            }
+
+                            if (finalQ && finalQ.length > 5 && finalAns !== "N/A") {
+                                docChildren.push(
+                                    new docx.Paragraph({
+                                        children: [
+                                            new docx.TextRun({ text: "• ", bold: true }),
+                                            new docx.TextRun({ text: `${finalQ} – `, size: 22 }),
+                                            new docx.TextRun({ text: `${finalAns} `, bold: true, size: 22 }),
+                                            new docx.TextRun({ text: `(${examTag})`, italics: true, size: 20, color: "888888" })
+                                        ],
+                                        spacing: { after: 120 }
+                                    })
+                                );
+                                processedCount++;
+                            }
+                        }
+                        
+                        if (i % 20 === 0) {
+                            const progress = 50 + ((i / blocks.length) * 50);
+                            progressBar.style.width = `${progress}%`;
+                        }
+                    }
+
+                    log(`✔ Success! Extracted ${processedCount} clean One-Liners.`);
+                    progressBar.style.width = '100%';
+
+                    log("Generating Word Document...");
+                    const blob = await docx.Packer.toBlob(doc);
+                    const url = URL.createObjectURL(blob);
+                    
+                    downloadBtn.href = url;
+                    downloadBtn.download = `Cleaned_Notes_${Date.now()}.docx`;
+                    
+                    successArea.style.display = 'block';
+
+                } catch (err) {
+                    log(`ERROR: ${err.message}`, 'error');
+                    console.error(err);
+                }
+            };
+            
+            // Read file trigger
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>
